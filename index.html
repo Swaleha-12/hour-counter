@@ -1,0 +1,1264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f6f7fb" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)">
+<meta name="description" content="Track study hours against a personal goal, one circle per hour.">
+<title>Study Hours Tracker</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+  :root {
+    --bg: #f6f7fb;
+    --surface: #ffffff;
+    --text: #1b1f2a;
+    --muted: #6b7280;
+    --line: #e3e6ed;
+    --empty: #c4c9d4;
+    --milestone: #8a91a0;
+    --accent: #4f7cff;
+    --accent-strong: #2c55d6;
+    --accent-soft: rgba(79, 124, 255, 0.18);
+    --danger: #d93a40;
+    --success: #23935c;
+    --warn-bg: #fff6e0;
+    --warn-text: #7a5300;
+    --shadow: 0 1px 2px rgba(20, 24, 35, 0.05), 0 4px 16px rgba(20, 24, 35, 0.05);
+    --radius: 16px;
+    --c: 20px;
+    --gap: 6px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115;
+      --surface: #181b22;
+      --text: #e8eaf0;
+      --muted: #9aa1ae;
+      --line: #2a2f3a;
+      --empty: #444a57;
+      --milestone: #7d8494;
+      --accent: #6b8fff;
+      --accent-strong: #a9bdff;
+      --accent-soft: rgba(107, 143, 255, 0.25);
+      --danger: #ff6b70;
+      --success: #4cc488;
+      --warn-bg: #2d2513;
+      --warn-text: #f3cf7a;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.25);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  button, input { font: inherit; color: inherit; }
+  [hidden] { display: none !important; }
+
+  .wrap {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: max(16px, env(safe-area-inset-top)) 16px 48px;
+  }
+  header.top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0 16px;
+  }
+  header.top h1 { font-size: 1.05rem; font-weight: 600; margin: 0; letter-spacing: 0.01em; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+
+  /* Buttons */
+  .btn {
+    appearance: none;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    border-radius: 999px;
+    padding: 10px 20px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, transform 0.05s;
+  }
+  .btn:hover { border-color: var(--muted); }
+  .btn:active { transform: scale(0.97); }
+  .btn:focus-visible, .icon-btn:focus-visible, input:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { background: var(--accent-strong); border-color: var(--accent-strong); }
+  @media (prefers-color-scheme: dark) {
+    .btn.primary { color: #0f1115; }
+  }
+  .btn.danger { color: var(--danger); }
+  .btn.danger.solid { background: var(--danger); border-color: var(--danger); color: #fff; }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+  .btn.big { padding: 14px 36px; font-size: 1.1rem; min-width: 140px; }
+  .btn.small { padding: 6px 14px; font-size: 0.9rem; }
+  .icon-btn {
+    appearance: none;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    border-radius: 999px;
+    width: 40px; height: 40px;
+    display: inline-grid; place-items: center;
+    cursor: pointer;
+  }
+  .icon-btn svg { width: 20px; height: 20px; }
+
+  /* Onboarding */
+  .onboarding {
+    min-height: 80vh;
+    display: grid;
+    place-items: center;
+  }
+  .onboarding .card { max-width: 440px; width: 100%; text-align: center; padding: 36px 28px; }
+  .onboarding h2 { font-size: 1.5rem; margin: 0 0 8px; }
+  .onboarding p { color: var(--muted); margin: 0 0 24px; }
+  .goal-row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+
+  .field {
+    border: 1px solid var(--line);
+    background: var(--bg);
+    border-radius: 12px;
+    padding: 10px 14px;
+    width: 140px;
+    font-size: 1.05rem;
+  }
+  .field.wide { width: 100%; }
+  .field.invalid { border-color: var(--danger); }
+  .error { color: var(--danger); font-size: 0.9rem; min-height: 1.4em; margin: 8px 0 0; }
+  .hint { color: var(--muted); font-size: 0.9rem; }
+
+  /* Timer */
+  .timer-card { text-align: center; padding: 32px 24px; }
+  .timer {
+    font-size: clamp(3.2rem, 14vw, 6.5rem);
+    font-weight: 300;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+    line-height: 1.05;
+    margin: 0;
+  }
+  .is-running .timer { color: var(--accent); }
+  .timer-status { color: var(--muted); margin: 8px 0 22px; min-height: 1.5em; }
+  .controls { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .readonly-note {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.95rem;
+  }
+
+  /* Summary */
+  .summary { display: grid; gap: 6px; }
+  .summary .total { font-size: 1.6rem; font-weight: 600; margin: 0; font-variant-numeric: tabular-nums; }
+  .summary .total .pct { color: var(--accent); font-weight: 600; margin-left: 8px; font-size: 1.1rem; }
+  .summary .remaining { color: var(--muted); margin: 0; font-variant-numeric: tabular-nums; }
+  .bar { height: 6px; background: var(--line); border-radius: 999px; overflow: hidden; margin-top: 10px; }
+  .bar > div { height: 100%; background: var(--accent); width: 0; transition: width 0.4s; }
+
+  .banner {
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+  .banner p { margin: 0; flex: 1 1 220px; }
+  .banner .actions { display: flex; gap: 8px; }
+  .banner.done { background: var(--accent-soft); color: var(--text); font-weight: 500; }
+  .banner.warn { background: var(--warn-bg); color: var(--warn-text); }
+  .banner.warn .btn { background: transparent; border-color: currentColor; }
+
+  /* Circle grid */
+  .grid-card h2, .history h2 {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin: 0 0 16px;
+    font-weight: 600;
+  }
+  .grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 22px 28px;
+  }
+  .grid.small { --c: 10px; --gap: 4px; gap: 14px 18px; }
+  @media (max-width: 600px) {
+    :root { --c: 16px; }
+    .card { padding: 20px 16px; }
+    .grid { gap: 18px 20px; }
+  }
+  .block {
+    display: grid;
+    grid-template-columns: repeat(10, var(--c));
+    grid-auto-rows: var(--c);
+    gap: var(--gap);
+    align-content: start;
+  }
+  .c {
+    width: var(--c);
+    height: var(--c);
+    border-radius: 50%;
+    border: 1.5px solid var(--empty);
+    background: transparent;
+    cursor: pointer;
+    position: relative;
+  }
+  .grid.small .c { border-width: 1px; }
+  .c.m { border-width: 3px; border-color: var(--milestone); }
+  .grid.small .c.m { border-width: 2px; }
+  .c.f { background: var(--accent); border-color: var(--accent); }
+  .c.f.m { border-color: var(--accent-strong); }
+  .c.p {
+    border-color: var(--accent);
+    background: conic-gradient(var(--accent) calc(var(--p, 0) * 1turn), transparent 0);
+  }
+  .is-running .c.p { animation: pulse 2s ease-in-out infinite; }
+  .c.pop { animation: pop 0.6s cubic-bezier(.2, 1.6, .4, 1); }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 var(--accent-soft); }
+    50% { box-shadow: 0 0 0 5px var(--accent-soft); }
+  }
+  @keyframes pop {
+    0% { transform: scale(0.6); }
+    60% { transform: scale(1.35); }
+    100% { transform: scale(1); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .is-running .c.p, .c.pop { animation: none; }
+  }
+
+  .tip {
+    position: fixed;
+    z-index: 50;
+    pointer-events: none;
+    background: var(--text);
+    color: var(--bg);
+    font-size: 0.85rem;
+    padding: 6px 10px;
+    border-radius: 8px;
+    white-space: nowrap;
+    box-shadow: var(--shadow);
+  }
+
+  /* History */
+  .history ul { list-style: none; margin: 0; padding: 0; }
+  .history li {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    padding: 10px 0;
+    border-top: 1px solid var(--line);
+    font-variant-numeric: tabular-nums;
+  }
+  .history li:first-child { border-top: 0; }
+  .history .when { display: flex; flex-wrap: wrap; gap: 0 10px; }
+  .history .time { color: var(--muted); }
+  .history .dur { font-weight: 600; white-space: nowrap; }
+  .history .adj .dur { color: var(--muted); font-weight: 500; }
+  .history .empty { color: var(--muted); margin: 0; }
+  .history .more { margin-top: 12px; }
+
+  /* Dialogs */
+  dialog {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text);
+    padding: 0;
+    width: min(480px, calc(100vw - 32px));
+    max-height: calc(100vh - 32px);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  }
+  dialog::backdrop { background: rgba(10, 12, 18, 0.45); }
+  .dlg { padding: 24px; }
+  .dlg h2 { margin: 0 0 4px; font-size: 1.25rem; }
+  .dlg h3 { margin: 0 0 8px; font-size: 1rem; }
+  .dlg section { padding: 18px 0; border-top: 1px solid var(--line); }
+  .dlg section:first-of-type { border-top: 0; }
+  .dlg .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .dlg .foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .dlg-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .trim-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 12px 0 0; }
+  .trim-row .field { width: 90px; }
+
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: max(24px, env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    background: var(--text);
+    color: var(--bg);
+    padding: 10px 18px;
+    border-radius: 999px;
+    font-size: 0.95rem;
+    z-index: 100;
+    box-shadow: var(--shadow);
+    max-width: calc(100vw - 32px);
+  }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Onboarding -->
+  <section id="onboarding" class="onboarding" hidden>
+    <form id="goalForm" class="card" novalidate>
+      <h2>How many hours do you want to study?</h2>
+      <p>Each hour becomes one circle. You can change this later.</p>
+      <div class="goal-row">
+        <label for="goalInput" class="sr-only">Goal in hours</label>
+        <input id="goalInput" class="field" type="text" inputmode="numeric" autocomplete="off" placeholder="e.g. 200" aria-describedby="goalError">
+        <button class="btn primary" type="submit">Set goal</button>
+      </div>
+      <p id="goalError" class="error" role="alert"></p>
+    </form>
+  </section>
+
+  <!-- Main app -->
+  <div id="app" hidden>
+    <header class="top">
+      <h1>Study Hours</h1>
+      <button id="settingsBtn" class="icon-btn" type="button" aria-label="Settings" title="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+    </header>
+
+    <div id="storageWarn" class="banner warn" hidden>
+      <p>This browser is blocking storage, so progress will not be saved. Try another browser or disable private mode.</p>
+    </div>
+
+    <!-- Zone 1: timer -->
+    <section class="card timer-card" aria-label="Session timer">
+      <p id="timer" class="timer" aria-live="off">00:00:00</p>
+      <p id="timerStatus" class="timer-status">Ready when you are</p>
+      <div id="controls" class="controls">
+        <button id="startBtn" class="btn primary big" type="button">Start</button>
+        <button id="pauseBtn" class="btn big" type="button" hidden>Pause</button>
+        <button id="resumeBtn" class="btn primary big" type="button" hidden>Resume</button>
+        <button id="stopBtn" class="btn big" type="button" hidden>Stop</button>
+      </div>
+      <p id="readonlyNote" class="readonly-note" hidden>This session is running in another tab. Control it there, or close that tab to take over here.</p>
+    </section>
+
+    <div id="doneBanner" class="banner done" role="status" hidden><p id="doneText"></p></div>
+    <div id="backupBanner" class="banner warn" hidden>
+      <p id="backupText">You have studied 20 more hours since your last backup. Export your data so it is safe if the browser clears storage.</p>
+      <div class="actions">
+        <button id="backupExportBtn" class="btn small" type="button">Export</button>
+        <button id="backupLaterBtn" class="btn small" type="button">Later</button>
+      </div>
+    </div>
+
+    <!-- Zone 2: progress summary -->
+    <section class="card summary" aria-label="Progress">
+      <p class="total"><span id="totalText">0h of 0h</span><span id="pctText" class="pct">0.0%</span></p>
+      <p id="remainingText" class="remaining"></p>
+      <div class="bar" aria-hidden="true"><div id="barFill"></div></div>
+    </section>
+
+    <!-- Zone 3: circle grid -->
+    <section class="card grid-card" aria-label="Hours">
+      <h2>One circle per hour</h2>
+      <div id="grid" class="grid" role="img" aria-label=""></div>
+    </section>
+
+    <section class="card history" aria-label="Session history">
+      <h2>Session history</h2>
+      <ul id="historyList"></ul>
+      <p id="historyEmpty" class="empty">No sessions yet. Press Start to begin.</p>
+      <button id="historyMore" class="btn small more" type="button" hidden>Show all</button>
+    </section>
+  </div>
+</div>
+
+<div id="tip" class="tip" role="tooltip" hidden></div>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+<input id="importFile" type="file" accept="application/json,.json" hidden>
+
+<!-- Settings -->
+<dialog id="settingsDlg" aria-labelledby="settingsTitle">
+  <div class="dlg">
+    <div class="dlg-head">
+      <h2 id="settingsTitle">Settings</h2>
+      <button class="icon-btn" type="button" data-close aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+
+    <section>
+      <h3>Goal</h3>
+      <form id="settingsGoalForm" class="row" novalidate>
+        <label for="settingsGoal" class="sr-only">Goal in hours</label>
+        <input id="settingsGoal" class="field" type="text" inputmode="numeric" autocomplete="off" aria-describedby="settingsGoalError">
+        <span class="hint">hours</span>
+        <button class="btn small primary" type="submit">Save goal</button>
+      </form>
+      <p id="settingsGoalError" class="error" role="alert"></p>
+      <p class="hint" style="margin:0">Changing the goal keeps all studied time.</p>
+    </section>
+
+    <section>
+      <h3>Manual adjust</h3>
+      <p class="hint" style="margin:0 0 10px">For sessions you forgot to log, or time logged by mistake.</p>
+      <form id="adjustForm" class="row" novalidate>
+        <label for="adjustMinutes" class="sr-only">Minutes</label>
+        <input id="adjustMinutes" class="field" type="text" inputmode="numeric" autocomplete="off" placeholder="minutes" aria-describedby="adjustError">
+        <button class="btn small" type="submit" data-sign="1">Add</button>
+        <button class="btn small" type="submit" data-sign="-1">Subtract</button>
+      </form>
+      <p id="adjustError" class="error" role="alert"></p>
+    </section>
+
+    <section>
+      <h3>Backup</h3>
+      <p id="lastBackup" class="hint" style="margin:0 0 10px"></p>
+      <div class="row">
+        <button id="exportBtn" class="btn small" type="button">Export JSON</button>
+        <button id="importBtn" class="btn small" type="button">Import JSON</button>
+      </div>
+      <p id="importError" class="error" role="alert"></p>
+    </section>
+
+    <section>
+      <h3>Reset</h3>
+      <p class="hint" style="margin:0 0 10px">Deletes your goal, total, and history from this browser.</p>
+      <button id="resetOpenBtn" class="btn small danger" type="button">Reset all data</button>
+    </section>
+  </div>
+</dialog>
+
+<!-- Reset confirm -->
+<dialog id="resetDlg" aria-labelledby="resetTitle">
+  <form id="resetForm" class="dlg" novalidate>
+    <h2 id="resetTitle">Reset all data?</h2>
+    <p class="hint">This cannot be undone. Consider exporting first. Type <strong>RESET</strong> to confirm.</p>
+    <label for="resetInput" class="sr-only">Type RESET</label>
+    <input id="resetInput" class="field wide" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="RESET">
+    <div class="foot" style="margin-top:16px">
+      <button class="btn" type="button" data-close>Cancel</button>
+      <button id="resetConfirmBtn" class="btn danger solid" type="submit" disabled>Reset</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Forgot to stop -->
+<dialog id="longDlg" aria-labelledby="longTitle">
+  <form id="longForm" class="dlg" novalidate>
+    <h2 id="longTitle">Session running 0h</h2>
+    <p id="longText" class="hint">Keep it or trim to a custom length?</p>
+    <div class="trim-row">
+      <span>Trim to</span>
+      <label class="sr-only" for="trimH">Hours</label>
+      <input id="trimH" class="field" type="text" inputmode="numeric" autocomplete="off" value="0"> <span>h</span>
+      <label class="sr-only" for="trimM">Minutes</label>
+      <input id="trimM" class="field" type="text" inputmode="numeric" autocomplete="off" value="0"> <span>m</span>
+    </div>
+    <p id="trimError" class="error" role="alert"></p>
+    <div class="foot">
+      <button id="longDiscardBtn" class="btn danger" type="button">Discard</button>
+      <button id="longKeepBtn" class="btn" type="button">Keep it</button>
+      <button class="btn primary" type="submit">Trim and save</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(() => {
+  'use strict';
+
+  // ---------- Constants ----------
+  const KEY = 'studyTracker.v1';
+  const OWNER_KEY = 'studyTracker.v1.owner';
+  const MIN = 60 * 1000;
+  const HOUR = 60 * MIN;
+  const MAX_GOAL = 10000;
+  const LONG_SESSION_MS = 8 * HOUR;
+  const BACKUP_EVERY_MS = 20 * HOUR;
+  const HEARTBEAT_MS = 2000;
+  const STALE_MS = 6000;
+  const RELEASED_GRACE_MS = 2000;
+  const SMALL_GRID_ABOVE = 1000;
+  const HISTORY_PREVIEW = 15;
+
+  const tabId = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  const loadedAt = Date.now();
+
+  // ---------- DOM ----------
+  const $ = (id) => document.getElementById(id);
+  const el = {
+    onboarding: $('onboarding'), goalForm: $('goalForm'), goalInput: $('goalInput'), goalError: $('goalError'),
+    app: $('app'), storageWarn: $('storageWarn'),
+    timer: $('timer'), timerStatus: $('timerStatus'), controls: $('controls'), readonlyNote: $('readonlyNote'),
+    startBtn: $('startBtn'), pauseBtn: $('pauseBtn'), resumeBtn: $('resumeBtn'), stopBtn: $('stopBtn'),
+    doneBanner: $('doneBanner'), doneText: $('doneText'),
+    backupBanner: $('backupBanner'), backupText: $('backupText'),
+    backupExportBtn: $('backupExportBtn'), backupLaterBtn: $('backupLaterBtn'),
+    totalText: $('totalText'), pctText: $('pctText'), remainingText: $('remainingText'), barFill: $('barFill'),
+    grid: $('grid'), tip: $('tip'), toast: $('toast'),
+    historyList: $('historyList'), historyEmpty: $('historyEmpty'), historyMore: $('historyMore'),
+    settingsBtn: $('settingsBtn'), settingsDlg: $('settingsDlg'),
+    settingsGoalForm: $('settingsGoalForm'), settingsGoal: $('settingsGoal'), settingsGoalError: $('settingsGoalError'),
+    adjustForm: $('adjustForm'), adjustMinutes: $('adjustMinutes'), adjustError: $('adjustError'),
+    lastBackup: $('lastBackup'), exportBtn: $('exportBtn'), importBtn: $('importBtn'),
+    importFile: $('importFile'), importError: $('importError'),
+    resetOpenBtn: $('resetOpenBtn'), resetDlg: $('resetDlg'), resetForm: $('resetForm'),
+    resetInput: $('resetInput'), resetConfirmBtn: $('resetConfirmBtn'),
+    longDlg: $('longDlg'), longForm: $('longForm'), longTitle: $('longTitle'), longText: $('longText'),
+    trimH: $('trimH'), trimM: $('trimM'), trimError: $('trimError'),
+    longKeepBtn: $('longKeepBtn'), longDiscardBtn: $('longDiscardBtn'),
+  };
+
+  // ---------- Storage ----------
+  let storageOk = true;
+  function storageGet(key) {
+    try { return localStorage.getItem(key); } catch (e) { storageOk = false; return null; }
+  }
+  function storageSet(key, value) {
+    try { localStorage.setItem(key, value); return true; } catch (e) { storageOk = false; return false; }
+  }
+  function storageRemove(key) {
+    try { localStorage.removeItem(key); } catch (e) { storageOk = false; }
+  }
+
+  const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
+
+  // Validates and fills defaults. Returns null when the data is unusable.
+  function normalize(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    const goal = raw.goalHours;
+    if (!Number.isInteger(goal) || goal < 1 || goal > MAX_GOAL) return null;
+    const s = {
+      goalHours: goal,
+      totalMs: isNum(raw.totalMs) && raw.totalMs > 0 ? Math.round(raw.totalMs) : 0,
+      activeSession: null,
+      sessions: [],
+      adjustments: [],
+      createdAt: isNum(raw.createdAt) ? raw.createdAt : Date.now(),
+      lastBackupTotalMs: isNum(raw.lastBackupTotalMs) ? raw.lastBackupTotalMs : 0,
+      lastExportAt: isNum(raw.lastExportAt) ? raw.lastExportAt : null,
+    };
+    const a = raw.activeSession;
+    if (a && isNum(a.startedAt)) {
+      s.activeSession = {
+        startedAt: a.startedAt,
+        pausedMs: isNum(a.pausedMs) && a.pausedMs > 0 ? a.pausedMs : 0,
+        pausedAt: isNum(a.pausedAt) ? a.pausedAt : null,
+      };
+      if (a.longAck === true) s.activeSession.longAck = true;
+    }
+    if (Array.isArray(raw.sessions)) {
+      s.sessions = raw.sessions
+        .filter((x) => x && isNum(x.start) && isNum(x.durationMs) && x.durationMs >= 0)
+        .map((x) => ({ start: x.start, end: isNum(x.end) ? x.end : x.start + x.durationMs, durationMs: x.durationMs }));
+    }
+    if (Array.isArray(raw.adjustments)) {
+      s.adjustments = raw.adjustments
+        .filter((x) => x && isNum(x.at) && isNum(x.deltaMs))
+        .map((x) => ({ at: x.at, deltaMs: x.deltaMs }));
+    }
+    return s;
+  }
+
+  function load() {
+    const raw = storageGet(KEY);
+    if (!raw) return null;
+    try { return normalize(JSON.parse(raw)); } catch (e) { return null; }
+  }
+
+  function save(s) {
+    state = s;
+    storageSet(KEY, JSON.stringify(s));
+  }
+
+  // Re-read the latest stored state (another tab may have changed it), apply a change, save, render.
+  function mutate(fn) {
+    const s = load() || state;
+    if (!s) return;
+    fn(s);
+    save(s);
+    renderAll();
+  }
+
+  // ---------- Tab ownership (only one tab controls a running session) ----------
+  function readLock() {
+    try { return JSON.parse(storageGet(OWNER_KEY)); } catch (e) { return null; }
+  }
+  let lastBeat = 0;
+  function writeLock(released) {
+    lastBeat = Date.now();
+    storageSet(OWNER_KEY, JSON.stringify({ tabId, beat: lastBeat, released: !!released }));
+  }
+  function releaseLock() { storageRemove(OWNER_KEY); }
+
+  // True when this tab may control the session. Claims the lock when it is free or abandoned.
+  function hasControl() {
+    if (!state || !state.activeSession) return true;
+    const lock = readLock();
+    const now = Date.now();
+    if (!lock || lock.tabId === tabId) {
+      if (!lock || lock.released || now - lastBeat > HEARTBEAT_MS) writeLock();
+      return true;
+    }
+    const age = now - lock.beat;
+    const abandoned = lock.released
+      ? (now - loadedAt < 3000 || age > RELEASED_GRACE_MS)
+      : age > STALE_MS;
+    if (abandoned) { writeLock(); return true; }
+    return false;
+  }
+
+  // ---------- Time helpers ----------
+  function elapsedOf(a, now) {
+    if (!a) return 0;
+    const end = a.pausedAt != null ? a.pausedAt : now;
+    return Math.max(0, end - a.startedAt - a.pausedMs);
+  }
+  const pad2 = (n) => String(n).padStart(2, '0');
+  function fmtClock(ms) {
+    const t = Math.floor(ms / 1000);
+    return `${pad2(Math.floor(t / 3600))}:${pad2(Math.floor((t % 3600) / 60))}:${pad2(t % 60)}`;
+  }
+  // "47h 23m", "12h", "45m", "0h"
+  function fmtHM(totalMinutes) {
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+    if (h && m) return `${h}h ${m}m`;
+    if (h) return `${h}h`;
+    if (m) return `${m}m`;
+    return '0h';
+  }
+  function fmtDuration(ms) {
+    const sec = Math.floor(ms / 1000);
+    if (sec < 60) return `${sec}s`;
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    return h ? `${h}h ${pad2(m)}m` : `${m}m`;
+  }
+  const fmtDate = (t) => new Date(t).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  const fmtTime = (t) => new Date(t).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+
+  // ---------- Validation ----------
+  function parseWhole(str, { min, max, label }) {
+    const v = String(str).trim();
+    if (v === '') return { error: `Please enter ${label}.` };
+    if (!/^[+-]?\d*\.?\d+$/.test(v)) return { error: 'Use a whole number, like 200.' };
+    const n = Number(v);
+    if (v.includes('.')) return { error: 'Whole numbers only, no decimals.' };
+    if (n <= 0 || n < min) return { error: `Must be at least ${min.toLocaleString()}.` };
+    if (n > max) return { error: `Maximum is ${max.toLocaleString()}.` };
+    return { value: n };
+  }
+  const parseGoal = (str) => parseWhole(str, { min: 1, max: MAX_GOAL, label: 'a number of hours' });
+
+  function showFieldError(input, errorEl, msg) {
+    errorEl.textContent = msg || '';
+    input.classList.toggle('invalid', !!msg);
+    if (msg) input.focus();
+  }
+
+  // ---------- State ----------
+  let state = null;
+
+  // ---------- Grid ----------
+  let builtGoal = 0;
+  let circles = [];
+  let shownFilled = 0;
+  let shownProgress = -1;
+
+  function buildGrid(goal) {
+    el.grid.textContent = '';
+    el.grid.classList.toggle('small', goal > SMALL_GRID_ABOVE);
+    const frag = document.createDocumentFragment();
+    circles = new Array(goal);
+    let block = null;
+    for (let i = 0; i < goal; i++) {
+      if (i % 100 === 0) {
+        block = document.createElement('div');
+        block.className = 'block';
+        frag.appendChild(block);
+      }
+      const c = document.createElement('span');
+      c.className = (i + 1) % 50 === 0 ? 'c m' : 'c';
+      c.dataset.i = i;
+      block.appendChild(c);
+      circles[i] = c;
+    }
+    el.grid.appendChild(frag);
+    builtGoal = goal;
+    shownFilled = 0;
+    shownProgress = -1;
+  }
+
+  function updateGrid(totalMs, running, animate) {
+    const goal = builtGoal;
+    const filled = Math.min(goal, Math.floor(totalMs / HOUR));
+    if (filled !== shownFilled) {
+      const lo = Math.min(filled, shownFilled);
+      const hi = Math.max(filled, shownFilled);
+      const popNew = animate && filled > shownFilled && filled - shownFilled <= 3;
+      for (let i = lo; i < hi; i++) {
+        const c = circles[i];
+        const on = i < filled;
+        c.classList.toggle('f', on);
+        if (on && popNew) {
+          c.classList.remove('pop');
+          void c.offsetWidth;
+          c.classList.add('pop');
+        }
+      }
+      shownFilled = filled;
+    }
+    const frac = (totalMs % HOUR) / HOUR;
+    const progress = filled < goal && (frac > 0 || running) ? filled : -1;
+    if (progress !== shownProgress && shownProgress >= 0 && circles[shownProgress]) {
+      circles[shownProgress].classList.remove('p');
+      circles[shownProgress].style.removeProperty('--p');
+    }
+    if (progress >= 0) {
+      const c = circles[progress];
+      c.classList.add('p');
+      c.style.setProperty('--p', frac.toFixed(4));
+    }
+    shownProgress = progress;
+    el.grid.setAttribute('aria-label', `${filled} of ${goal} hour circles filled`);
+  }
+
+  // When each hour was completed, derived from session and adjustment history.
+  function hourCompletionDates(now) {
+    const events = [];
+    for (const s of state.sessions) events.push({ t: s.start, end: s.end, d: s.durationMs, session: true });
+    for (const a of state.adjustments) events.push({ t: a.at, d: a.deltaMs, session: false });
+    events.sort((x, y) => x.t - y.t);
+    const known = events.reduce((sum, e) => sum + e.d, 0);
+    let cum = Math.max(0, state.totalMs - known); // time with no history (e.g. imported totals)
+    const a = state.activeSession;
+    if (a) events.push({ t: a.startedAt, end: now, d: elapsedOf(a, now), session: true });
+    const dates = new Map();
+    for (const e of events) {
+      const before = cum;
+      cum = Math.max(0, cum + e.d);
+      if (cum > before) {
+        for (let k = Math.floor(before / HOUR) + 1; k <= Math.floor(cum / HOUR); k++) {
+          const at = e.session ? Math.min(e.end, e.t + (k * HOUR - before)) : e.t;
+          dates.set(k, at);
+        }
+      } else if (cum < before) {
+        for (const k of [...dates.keys()]) if (k > Math.floor(cum / HOUR)) dates.delete(k);
+      }
+    }
+    return dates;
+  }
+
+  // ---------- Tooltip ----------
+  function showTip(c) {
+    const i = Number(c.dataset.i);
+    const hour = i + 1;
+    let text = `Hour ${hour.toLocaleString()}`;
+    if (c.classList.contains('f')) {
+      const d = hourCompletionDates(Date.now()).get(hour);
+      if (d) text += ` · completed ${fmtDate(d)}`;
+    } else if (c.classList.contains('p')) {
+      const p = Number(c.style.getPropertyValue('--p')) || 0;
+      text += ` · ${Math.floor(p * 100)}% done`;
+    }
+    el.tip.textContent = text;
+    el.tip.hidden = false;
+    const r = c.getBoundingClientRect();
+    const tw = el.tip.offsetWidth;
+    const th = el.tip.offsetHeight;
+    let left = r.left + r.width / 2 - tw / 2;
+    left = Math.max(8, Math.min(left, window.innerWidth - tw - 8));
+    let top = r.top - th - 8;
+    if (top < 8) top = r.bottom + 8;
+    el.tip.style.left = `${left}px`;
+    el.tip.style.top = `${top}px`;
+  }
+  function hideTip() { el.tip.hidden = true; }
+
+  el.grid.addEventListener('mouseover', (e) => {
+    const c = e.target.closest('.c');
+    if (c) showTip(c);
+  });
+  el.grid.addEventListener('mouseleave', hideTip);
+  el.grid.addEventListener('click', (e) => {
+    const c = e.target.closest('.c');
+    if (!c) return;
+    e.stopPropagation();
+    if (e.pointerType !== 'mouse') showTip(c);
+  });
+  document.addEventListener('click', hideTip);
+  window.addEventListener('scroll', hideTip, { passive: true });
+  window.addEventListener('resize', hideTip);
+
+  // ---------- History ----------
+  let historyExpanded = false;
+  let historySig = '';
+  function renderHistory() {
+    const sig = `${state.sessions.length}|${state.adjustments.length}|${historyExpanded}|${state.createdAt}`;
+    if (sig === historySig) return;
+    historySig = sig;
+    const items = [
+      ...state.sessions.map((s) => ({ t: s.start, s })),
+      ...state.adjustments.map((a) => ({ t: a.at, a })),
+    ].sort((x, y) => y.t - x.t);
+    const shown = historyExpanded ? items : items.slice(0, HISTORY_PREVIEW);
+    el.historyList.textContent = '';
+    const frag = document.createDocumentFragment();
+    for (const it of shown) {
+      const li = document.createElement('li');
+      const when = document.createElement('span');
+      when.className = 'when';
+      const date = document.createElement('span');
+      date.textContent = fmtDate(it.t);
+      const time = document.createElement('span');
+      time.className = 'time';
+      const dur = document.createElement('span');
+      dur.className = 'dur';
+      if (it.s) {
+        time.textContent = fmtTime(it.t);
+        dur.textContent = fmtDuration(it.s.durationMs);
+      } else {
+        li.className = 'adj';
+        time.textContent = 'Manual adjustment';
+        const sign = it.a.deltaMs < 0 ? '−' : '+';
+        dur.textContent = sign + fmtDuration(Math.abs(it.a.deltaMs));
+      }
+      when.append(date, time);
+      li.append(when, dur);
+      frag.appendChild(li);
+    }
+    el.historyList.appendChild(frag);
+    el.historyEmpty.hidden = items.length > 0;
+    el.historyMore.hidden = historyExpanded || items.length <= HISTORY_PREVIEW;
+    el.historyMore.textContent = `Show all (${items.length})`;
+  }
+  el.historyMore.addEventListener('click', () => { historyExpanded = true; renderHistory(); });
+
+  // ---------- Rendering ----------
+  let ticker = null;
+  let lastClock = '';
+
+  function renderAll() {
+    hideTip();
+    if (!state) {
+      el.app.hidden = true;
+      el.onboarding.hidden = false;
+      stopTicker();
+      document.title = 'Study Hours Tracker';
+      return;
+    }
+    el.onboarding.hidden = true;
+    el.app.hidden = false;
+    el.storageWarn.hidden = storageOk;
+    if (builtGoal !== state.goalHours) {
+      buildGrid(state.goalHours);
+      update(false);
+    } else {
+      update(true);
+    }
+    renderHistory();
+    if (state.activeSession) startTicker(); else stopTicker();
+  }
+
+  function update(animate = true) {
+    if (!state) return;
+    const now = Date.now();
+    const a = state.activeSession;
+    const control = hasControl();
+    const live = elapsedOf(a, now);
+    const running = !!a && a.pausedAt == null;
+    const total = state.totalMs + live;
+    const goalMs = state.goalHours * HOUR;
+
+    // Timer
+    const clock = fmtClock(live);
+    if (clock !== lastClock) { el.timer.textContent = clock; lastClock = clock; }
+    document.body.classList.toggle('is-running', running);
+    document.title = a ? `${running ? '▶' : '❚❚'} ${clock} · Study Hours` : 'Study Hours Tracker';
+
+    if (!a) el.timerStatus.textContent = 'Ready when you are';
+    else if (!running) el.timerStatus.textContent = `Paused · started ${fmtTime(a.startedAt)}`;
+    else el.timerStatus.textContent = `Studying · started ${fmtTime(a.startedAt)}`;
+
+    el.controls.hidden = !control;
+    el.readonlyNote.hidden = control;
+    el.startBtn.hidden = !!a;
+    el.pauseBtn.hidden = !running;
+    el.resumeBtn.hidden = !a || running;
+    el.stopBtn.hidden = !a;
+
+    // Summary
+    const totalMin = Math.floor(total / MIN);
+    const goalMin = state.goalHours * 60;
+    el.totalText.textContent = `${fmtHM(totalMin)} of ${state.goalHours.toLocaleString()}h`;
+    let pct = Math.round((total / goalMs) * 1000) / 10;
+    if (total < goalMs) pct = Math.min(pct, 99.9);
+    el.pctText.textContent = `${pct.toFixed(1)}%`;
+    el.barFill.style.width = `${Math.min(100, (total / goalMs) * 100)}%`;
+    const done = total >= goalMs;
+    if (!done) el.remainingText.textContent = `${fmtHM(goalMin - totalMin)} to go`;
+    else if (totalMin > goalMin) el.remainingText.textContent = `+${fmtHM(totalMin - goalMin)} over goal`;
+    else el.remainingText.textContent = 'Goal reached';
+
+    el.doneBanner.hidden = !done;
+    if (done) el.doneText.textContent = `🎉 Goal complete! You studied all ${state.goalHours.toLocaleString()} hours.`;
+
+    // Backup reminder (based on saved total so it does not flicker mid-session)
+    el.backupBanner.hidden = state.totalMs - state.lastBackupTotalMs < BACKUP_EVERY_MS;
+
+    updateGrid(total, running, animate);
+  }
+
+  function startTicker() {
+    if (ticker) return;
+    ticker = setInterval(() => update(true), 250);
+  }
+  function stopTicker() {
+    if (!ticker) return;
+    clearInterval(ticker);
+    ticker = null;
+  }
+
+  // ---------- Toast ----------
+  let toastTimer = null;
+  function toast(msg) {
+    el.toast.textContent = msg;
+    el.toast.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.toast.hidden = true; }, 2600);
+  }
+
+  // ---------- Actions ----------
+  function setGoalFirstTime(goal) {
+    const s = load() || {
+      goalHours: goal, totalMs: 0, activeSession: null, sessions: [], adjustments: [],
+      createdAt: Date.now(), lastBackupTotalMs: 0, lastExportAt: null,
+    };
+    s.goalHours = goal;
+    save(s);
+    renderAll();
+  }
+
+  function start() {
+    mutate((s) => {
+      if (s.activeSession) return;
+      s.activeSession = { startedAt: Date.now(), pausedMs: 0, pausedAt: null };
+      writeLock();
+    });
+  }
+  function pause() {
+    mutate((s) => {
+      const a = s.activeSession;
+      if (a && a.pausedAt == null) a.pausedAt = Date.now();
+    });
+  }
+  function resume() {
+    mutate((s) => {
+      const a = s.activeSession;
+      if (a && a.pausedAt != null) {
+        a.pausedMs += Date.now() - a.pausedAt;
+        a.pausedAt = null;
+      }
+    });
+  }
+  // Ends the running session and adds it to the total. durationMs overrides the measured time (trim).
+  function stop(durationMs) {
+    mutate((s) => {
+      const a = s.activeSession;
+      if (!a) return;
+      const now = Date.now();
+      const measured = elapsedOf(a, now);
+      const dur = durationMs != null ? Math.min(durationMs, measured) : measured;
+      const end = durationMs != null ? a.startedAt + dur : (a.pausedAt != null ? a.pausedAt : now);
+      if (dur >= 1000) {
+        s.totalMs += dur;
+        s.sessions.push({ start: a.startedAt, end, durationMs: dur });
+      }
+      s.activeSession = null;
+    });
+    releaseLock();
+    if (state) {
+      const last = state.sessions[state.sessions.length - 1];
+      if (last && Date.now() - last.end < 5000) toast(`Saved ${fmtDuration(last.durationMs)}`);
+    }
+  }
+  function discardSession() {
+    mutate((s) => { s.activeSession = null; });
+    releaseLock();
+    toast('Session discarded');
+  }
+
+  el.startBtn.addEventListener('click', start);
+  el.pauseBtn.addEventListener('click', pause);
+  el.resumeBtn.addEventListener('click', resume);
+  el.stopBtn.addEventListener('click', () => stop());
+
+  // Space toggles start / pause / resume when not typing.
+  document.addEventListener('keydown', (e) => {
+    if (e.code !== 'Space' || e.repeat || !state || el.app.hidden) return;
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'BUTTON' || t.isContentEditable)) return;
+    if (document.querySelector('dialog[open]') || !hasControl()) return;
+    e.preventDefault();
+    const a = state.activeSession;
+    if (!a) start(); else if (a.pausedAt == null) pause(); else resume();
+  });
+
+  // ---------- Onboarding ----------
+  el.goalForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const r = parseGoal(el.goalInput.value);
+    if (r.error) return showFieldError(el.goalInput, el.goalError, r.error);
+    showFieldError(el.goalInput, el.goalError, '');
+    el.goalInput.value = '';
+    setGoalFirstTime(r.value);
+  });
+  el.goalInput.addEventListener('input', () => showFieldError(el.goalInput, el.goalError, ''));
+
+  // ---------- Settings ----------
+  function openSettings() {
+    el.settingsGoal.value = state.goalHours;
+    el.adjustMinutes.value = '';
+    [[el.settingsGoal, el.settingsGoalError], [el.adjustMinutes, el.adjustError]].forEach(([i, er]) => showFieldError(i, er, ''));
+    el.importError.textContent = '';
+    el.lastBackup.textContent = state.lastExportAt
+      ? `Last export: ${fmtDate(state.lastExportAt)} at ${fmtTime(state.lastExportAt)}.`
+      : 'You have not exported yet. Browsers can clear storage, so keep a backup.';
+    el.settingsDlg.showModal();
+  }
+  el.settingsBtn.addEventListener('click', openSettings);
+
+  document.querySelectorAll('dialog [data-close]').forEach((b) => {
+    b.addEventListener('click', () => b.closest('dialog').close());
+  });
+  // Click on the backdrop closes the settings and reset dialogs.
+  [el.settingsDlg, el.resetDlg].forEach((d) => {
+    d.addEventListener('click', (e) => { if (e.target === d) d.close(); });
+  });
+
+  el.settingsGoalForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const r = parseGoal(el.settingsGoal.value);
+    if (r.error) return showFieldError(el.settingsGoal, el.settingsGoalError, r.error);
+    showFieldError(el.settingsGoal, el.settingsGoalError, '');
+    mutate((s) => { s.goalHours = r.value; });
+    toast(`Goal set to ${r.value.toLocaleString()}h`);
+  });
+  el.settingsGoal.addEventListener('input', () => showFieldError(el.settingsGoal, el.settingsGoalError, ''));
+
+  el.adjustForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const sign = Number((e.submitter && e.submitter.dataset.sign) || 1);
+    const r = parseWhole(el.adjustMinutes.value, { min: 1, max: MAX_GOAL * 60, label: 'a number of minutes' });
+    if (r.error) return showFieldError(el.adjustMinutes, el.adjustError, r.error);
+    let applied = 0;
+    mutate((s) => {
+      let delta = sign * r.value * MIN;
+      if (delta < 0) delta = Math.max(delta, -s.totalMs);
+      if (delta === 0) return;
+      s.totalMs += delta;
+      s.adjustments.push({ at: Date.now(), deltaMs: delta });
+      applied = delta;
+    });
+    if (!applied) return showFieldError(el.adjustMinutes, el.adjustError, 'Nothing to subtract yet.');
+    showFieldError(el.adjustMinutes, el.adjustError, '');
+    el.adjustMinutes.value = '';
+    toast(`${applied > 0 ? 'Added' : 'Subtracted'} ${fmtDuration(Math.abs(applied))}`);
+  });
+  el.adjustMinutes.addEventListener('input', () => showFieldError(el.adjustMinutes, el.adjustError, ''));
+
+  // ---------- Export / Import ----------
+  function exportData() {
+    mutate((s) => {
+      s.lastBackupTotalMs = s.totalMs;
+      s.lastExportAt = Date.now();
+    });
+    const json = JSON.stringify(state, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const d = new Date();
+    a.href = url;
+    a.download = `study-tracker-${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast('Backup downloaded');
+    if (el.settingsDlg.open) {
+      el.lastBackup.textContent = `Last export: ${fmtDate(state.lastExportAt)} at ${fmtTime(state.lastExportAt)}.`;
+    }
+  }
+  el.exportBtn.addEventListener('click', exportData);
+  el.backupExportBtn.addEventListener('click', exportData);
+  el.backupLaterBtn.addEventListener('click', () => {
+    mutate((s) => { s.lastBackupTotalMs = s.totalMs; });
+  });
+
+  el.importBtn.addEventListener('click', () => { el.importFile.value = ''; el.importFile.click(); });
+  el.importFile.addEventListener('change', async () => {
+    const file = el.importFile.files && el.importFile.files[0];
+    if (!file) return;
+    el.importError.textContent = '';
+    let data = null;
+    try { data = normalize(JSON.parse(await file.text())); } catch (e) { data = null; }
+    if (!data) {
+      el.importError.textContent = 'That file is not a valid Study Tracker backup.';
+      return;
+    }
+    const summary = `${fmtHM(Math.floor(data.totalMs / MIN))} of ${data.goalHours}h, ${data.sessions.length} sessions`;
+    if (!confirm(`Replace your current data with this backup?\n\n${summary}`)) return;
+    releaseLock();
+    save(data);
+    historySig = '';
+    builtGoal = 0;
+    renderAll();
+    el.settingsDlg.close();
+    toast('Backup restored');
+  });
+
+  // ---------- Reset ----------
+  el.resetOpenBtn.addEventListener('click', () => {
+    el.resetInput.value = '';
+    el.resetConfirmBtn.disabled = true;
+    el.resetDlg.showModal();
+    el.resetInput.focus();
+  });
+  el.resetInput.addEventListener('input', () => {
+    el.resetConfirmBtn.disabled = el.resetInput.value.trim() !== 'RESET';
+  });
+  el.resetForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (el.resetInput.value.trim() !== 'RESET') return;
+    storageRemove(KEY);
+    releaseLock();
+    state = null;
+    builtGoal = 0;
+    historySig = '';
+    historyExpanded = false;
+    el.resetDlg.close();
+    el.settingsDlg.close();
+    renderAll();
+    el.goalInput.focus();
+  });
+
+  // ---------- Forgot to stop ----------
+  function checkLongSession() {
+    if (!state || !state.activeSession || el.longDlg.open) return;
+    const a = state.activeSession;
+    if (a.longAck || !hasControl()) return;
+    const ms = elapsedOf(a, Date.now());
+    if (ms < LONG_SESSION_MS) return;
+    const h = Math.floor(ms / HOUR);
+    el.longTitle.textContent = `Session running ${h}h`;
+    el.longText.textContent = `Started ${fmtDate(a.startedAt)} at ${fmtTime(a.startedAt)}. Keep it or trim to a custom length?`;
+    el.trimH.value = '2';
+    el.trimM.value = '0';
+    el.trimError.textContent = '';
+    el.longDlg.dataset.maxMs = ms;
+    if (!el.longDlg.open) {
+      document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+      el.longDlg.showModal();
+    }
+  }
+  el.longKeepBtn.addEventListener('click', () => {
+    mutate((s) => { if (s.activeSession) s.activeSession.longAck = true; });
+    el.longDlg.close();
+  });
+  el.longDiscardBtn.addEventListener('click', () => {
+    if (!confirm('Discard this session? None of its time will be added.')) return;
+    el.longDlg.close();
+    discardSession();
+  });
+  el.longForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const hStr = el.trimH.value.trim() || '0';
+    const mStr = el.trimM.value.trim() || '0';
+    if (!/^\d+$/.test(hStr) || !/^\d+$/.test(mStr) || Number(mStr) > 59) {
+      el.trimError.textContent = 'Use whole numbers: hours, and minutes from 0 to 59.';
+      return;
+    }
+    const ms = Number(hStr) * HOUR + Number(mStr) * MIN;
+    const max = elapsedOf(state.activeSession, Date.now());
+    if (ms < MIN) { el.trimError.textContent = 'Trim to at least 1 minute, or discard the session.'; return; }
+    if (ms > max) { el.trimError.textContent = `Cannot be longer than the session (${fmtDuration(max)}).`; return; }
+    el.longDlg.close();
+    stop(ms);
+  });
+  el.longDlg.addEventListener('cancel', (e) => e.preventDefault());
+
+  // ---------- Sync between tabs ----------
+  window.addEventListener('storage', (e) => {
+    if (e.key === KEY || e.key === null) {
+      const next = load();
+      const goalChanged = !next || !state || next.goalHours !== state.goalHours;
+      state = next;
+      if (goalChanged) builtGoal = 0;
+      if (!state && el.settingsDlg.open) el.settingsDlg.close();
+      if (el.longDlg.open && (!state || !state.activeSession)) el.longDlg.close();
+      renderAll();
+    } else if (e.key === OWNER_KEY) {
+      update(true);
+    }
+  });
+
+  // Hand the lock back on unload so a reload in this tab picks the session straight back up.
+  window.addEventListener('pagehide', () => {
+    const lock = readLock();
+    if (state && state.activeSession && lock && lock.tabId === tabId) writeLock(true);
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && state) {
+      const fresh = load();
+      if (fresh) state = fresh;
+      if (fresh && fresh.goalHours !== builtGoal) builtGoal = 0;
+      renderAll();
+      checkLongSession();
+    }
+  });
+
+  // ---------- Boot ----------
+  state = load();
+  renderAll();
+  checkLongSession();
+  if (!state) el.goalInput.focus();
+
+  // Optional PWA: works offline when served over http(s).
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  }
+})();
+</script>
+</body>
+</html>
